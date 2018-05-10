@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width" />
+    <title>{% block title %}{% endblock title %}</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.4/css/all.css" integrity="sha384-DmABxgPhJN5jlTwituIyzIUk6oqyzf3+XuP7q3VfcWA2unxgim7OSSZKKf0KSsnh" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/general.css"></link>
+    <style>
+        @import url(https://fonts.googleapis.com/earlyaccess/notosanstc.css);
+    </style>
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container">
+        <a class="navbar-brand" href="/">Simple C-AI</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarResponsive">
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+              <h6><a class="nav-link" href="https://jiankaiwang.no-ip.biz/"><i class="fas fa-home fa-sm"></i> Personal</a></h6>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Header with Background Image -->
+    <header class="business-header padding-top-bottom">
+      <div class="container">
+        <div class="row col-lg-12 col-sm-12 mb-12">
+            <div class="col-lg-1"></div>
+            <div class="col-lg-1 col-sm-1 mb-1">
+                <!--<img class="rounded-circle img-fluid d-block mx-auto" width="200px" src="data/IMAG0322.jpg" alt="">-->
+            </div>
+            <div class="col-lg-8 col-sm-10 text-left mb-10">
+                <div class="row col-lg-12 col-sm-12 mb-12">
+                    <h2>Simple Cloud-AI</h2>
+                </div>
+                <div class="row col-lg-12 col-sm-12 mb-12">
+                    <h4><small>by JianKai Wang</small></h4>
+                </div>
+                <div class="row col-lg-12 col-sm-12 mb-12">
+                    <h6><p class="text-muted">Simple Cloud-AI is the simple api server for AI image recognition.</p></h6>
+                </div>
+                <div class="row col-lg-12 col-sm-12 mb-12">
+                    <a href="https://github.com/jiankaiwang"><i class="fab fa-github fa-2x"></i></a>&nbsp;
+                </div>
+                <div class="row col-lg-12 col-sm-12 mb-12 margin-top">
+                    <!--<img src="https://cicd.ddns.net/buildStatus/icon?job=sophia"></img>-->
+                </div>
+            </div>
+            <div class="col-lg-2 col-sm-1 mb-1"></div>
+        </div>
+      </div>
+    </header>
+    
+    <div class="container padding-bottom-20">
+        <div class="row">
+            <div class="col-lg-12">
+                <hr />
+            </div>
+        </div>
+    </div>
+    {% block classification %}{% endblock classification %}
+    {% block objectdetection %}{% endblock objectdetection %}
+    <!-- footer -->
+    <footer class="py-4 bg-dark">
+      <div class="container">
+        <h6><p class="m-0 text-center text-white">© 2017-2018 JianKai Wang</p></h6>
+      </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="/static/Common.js"></script>
+    <script src="/static/image_classification.js"></script>
+    <script src="/static/object_detection.js"></script>
+  </body>
+</html>

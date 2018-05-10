@@ -1,0 +1,90 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block title %}
+Simple C-AI
+{% endblock title %}
+
+{% block classification %}
+<div class="container">
+    <div class="row">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-left">
+            <h3>Image Classification API</h3>
+            <h6>Here we demostrate a image classification example. You can upload a image and it would output the classification result. In the example, we use a pre-trained tensorflow model (recognizing flowers). You can replace it with your own one by changing the usr/image_classification.config file.</h6>
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>
+    <div class="row margin-section">
+        <div class="col-xs-3 col-md-3"></div>
+        <div class="col-xs-6 col-md-6 text-center">
+            <form method="POST" enctype="multipart/form-data" action="/imageclassification" id="imageclassification">
+                <input type="file" name="photo"></input>
+                <input type="button" id="icupload" value="Upload"></input>
+            </form>
+        </div>
+        <div class="col-xs-3 col-md-3"></div>
+    </div>
+    <div class="row margin-section">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-5 col-md-5 text-center classifyorigin">
+            <img src='http://placehold.jp/24/cccccc/ffffff/300x300.png?text=Upload' id="classifyoriginbody" />
+        </div>
+        <div class="col-xs-5 col-md-5 text-left icres">
+            
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>
+    <div class="row margin-section margin-bottom">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-center">
+            <!-- Continue ...-->
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>    
+</div>
+{% endblock classification %}
+
+{% block objectdetection %}
+<div class="container">
+    <div class="row">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-left">
+            <h3>Object Detection API</h3>
+            <h6>Here we demostrate a object detection example. You can simply upload a image and see it with label tags. In the example, we use a pre-trained tensorflow model (ssd_mobilenet_v1_coco_2017_11_17) as the default one. You can simply replace it with your own one.</h6>
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>
+    <div class="row margin-section">
+        <div class="col-xs-3 col-md-3"></div>
+        <div class="col-xs-6 col-md-6 text-center">
+            <form method="POST" enctype="multipart/form-data" action="/objectdetection" id="objectdetection">
+                <input type="file" name="photo"></input>
+                <input type="button" id="odupload" value="Upload"></input>
+            </form>
+        </div>
+        <div class="col-xs-3 col-md-3"></div>
+    </div>
+    <div class="row margin-section">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-center oriimg">
+            <img src='http://placehold.jp/24/cccccc/ffffff/300x300.png?text=Upload' id="oriimgbody" />
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>
+    <div class="row margin-section">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-center resimg">
+            <img src='http://placehold.jp/24/cccccc/ffffff/300x300.png?text=Result' id="resimgbody" />
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>
+    <div class="row margin-section margin-bottom">
+        <div class="col-xs-2 col-md-2"></div>
+        <div class="col-xs-8 col-md-8 text-center">
+            <!-- Continue ...-->
+        </div>
+        <div class="col-xs-2 col-md-2"></div>
+    </div>    
+</div>
+{% endblock objectdetection %}
