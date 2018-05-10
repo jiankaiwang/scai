@@ -213,13 +213,35 @@ OUTPUT_LAYER = final_result
 
 ## Object Detection
 
-In SCAI, we integrates with lots of tensorflow components.  Object detection is the issue to recognize the specific objects on the image.
+Object detection is the issue to recognize the specific objects on the image.
 
 
 
 ![](./usr/scai_object_detection.png)
 
 
+
+In SCAI, we integrates with lots of tensorflow components. If you want to use object detection API, you have to prepare necessary components (replicate from `tensorflow/models`) in the root path of scai.
+
+```shell
+cd scai
+mkdir ./object_detection
+
+# make sure you have already git clone the tensorflow/models
+cp models/research/object_detection/__init__.py ./object_detection/
+cp -r models/research/object_detection/core ./object_detection/
+cp -r models/research/object_detection/protos ./object_detection/
+cp -r models/research/object_detection/utils ./object_detection/
+```
+
+```text
++ scai
++ object_detection
+  + core
+  + protos
+  + utils
+  - __init__.py
+```
 
 For more training details, including labeling, training datasets, model deployment, etc., please refer to https://github.com/jiankaiwang/TF_ObjectDetection_Flow.
 
