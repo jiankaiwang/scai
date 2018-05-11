@@ -15,6 +15,7 @@ import configparser
 import codecs
 import json
 import datetime
+import time
 
 if tf.__version__ < '1.4.0':
     print('Error: Please upgrade your tensorflow installation to v1.4.* or later!')
@@ -32,6 +33,7 @@ MODEL_NAME = None
 PATH_TO_CKPT = None
 PATH_TO_LABELS = None
 NUM_CLASSES = 0
+SESSNAME = None
 #print("Model Name:{}".format(MODEL_NAME))
 
 # Load a (frozen) Tensorflow model into memory.
@@ -67,8 +69,8 @@ def __parse_image_size(strconfig):
     return (int(strsplit[0]), int(strsplit[1]))
     
 def __read_session_process():
-    global SESS_PATH, FLAGS
-    process_file = os.path.join(SESS_PATH, FLAGS.sessname, 'process.json')
+    global SESS_PATH, FLAGS, SESSNAME
+    process_file = os.path.join(SESS_PATH, SESSNAME, 'process.json')
     tmpContent = ""
     with codecs.open(process_file, 'r', 'utf-8') as fin:
         for line in fin:
@@ -82,8 +84,8 @@ def __get_input_image_name():
 
 # keyValueList: [{key="",value=""}]
 def __write_session_process(keyValueList):
-    global SESS_PATH, FLAGS
-    process_file = os.path.join(SESS_PATH, FLAGS.sessname, 'process.json')
+    global SESS_PATH, FLAGS, SESSNAME
+    process_file = os.path.join(SESS_PATH, SESSNAME, 'process.json')
     process = json.loads(__read_session_process())
     for pair in keyValueList:
         process[pair["key"]] = pair["value"]
@@ -130,10 +132,10 @@ def run_inference_for_single_image(image, graph):
     return output_dict
 
 def output_object_detection():    
-    global config, SESS_PATH, FLAGS
+    global config, SESS_PATH, FLAGS, SESSNAME
     
     # test image environment
-    task_path = os.path.join(SESS_PATH, FLAGS.sessname)
+    task_path = os.path.join(SESS_PATH, SESSNAME)
     image_path = os.path.join(task_path, __get_input_image_name())
     image = Image.open(image_path)
     
@@ -171,6 +173,12 @@ def output_object_detection():
         , {"key":"message","value":"Object detection finished on {}".format(datetime.datetime.now().strftime("%H:%M:%S"))}\
         , {"key":"result_image","value":output_res_img}])
 
+def remove_task_tag():
+    global SESSNAME
+    targetFile = os.path.join(POOLING_PATH, SESSNAME)
+    if os.path.isfile(targetFile):
+        os.remove(targetFile)
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(\
@@ -186,16 +194,34 @@ if __name__ == '__main__':
         help='used model in object detection'\
     )
     parser.add_argument(\
+        '--poolingdir',\
+        type=str,\
+        default=os.path.join('.','pooling','object_detection'),\
+        help='pooling directory for object detection'\
+    )
+    parser.add_argument(\
         '--sessname',\
         type=str,\
         default='',\
         help='assigned session name'\
-    )
+    )    
     parser.add_argument(\
         '--sesspath',\
         type=str,\
         default=os.path.join('.','session'),\
         help='the file to configurate the object detection'\
+    )
+    parser.add_argument(\
+        '--checktimeperoid',\
+        type=int,\
+        default=2,\
+        help='check pooling directory in seconds'\
+    )
+    parser.add_argument(\
+        '--runningmode',\
+        type=str,\
+        default='runtime',\
+        help='running mode: runtime(wait for new task) or job(call to run)'\
     )
     FLAGS, unparsed = parser.parse_known_args()
     config = configparser.ConfigParser()
@@ -208,11 +234,41 @@ if __name__ == '__main__':
     PATH_TO_CKPT = os.path.join('.', config['USR_PATH'], config['PATH_TO_CKPT'])
     PATH_TO_LABELS = os.path.join('.', config['USR_PATH'], config['PATH_TO_LABELS'])
     NUM_CLASSES = int(config['NUM_CLASSES'])
+    POOLING_PATH = FLAGS.poolingdir
+    CHECK_POOLING_SEC = FLAGS.checktimeperoid
+    RUNNING_MODE = FLAGS.runningmode
+    SESSNAME = ""
 
     # start object detection
     import_graph()
     load_label_map()
-    output_object_detection()
+    
+    if RUNNING_MODE == "runtime":
+        while True:
+            ttlFiles = next(os.walk(POOLING_PATH))[2]       
+            if len(ttlFiles) > 0:
+                for task in ttlFiles:
+                    crtTime = time.ctime()
+                    SESSNAME = task
+                    try:
+                        output_object_detection()
+                    except:
+                        print()
+                        __write_session_process([\
+                            {"key":"state","value":"failure"}\
+                            , {"key":"message","value":"Object detection failed on {}"\
+                               .format(datetime.datetime.now().strftime("%H:%M:%S"))}])
+                    remove_task_tag()
+                    endTime = time.ctime()
+                    print("State: Parse task {} from {} to {}."\
+                          .format(task, crtTime, endTime))
+            else:
+                time.sleep(CHECK_POOLING_SEC)
+    elif RUNNING_MODE == "job":
+        SESSNAME = FLAGS.sessname
+        output_object_detection()
+        
+
     
 
     

@@ -13,10 +13,14 @@ import json
 import codecs
 import subprocess
 import platform
+import argparse
 
 app = Flask(__name__)
 SESSPATH = os.path.join('.','session')
 __randomElement = [item for item in '0123456789abcdefghijklmnopqrstuvwxyz']
+RUNNING_MODE = None
+OD_POOL_PATH = None
+IC_POOL_PATH = None
 
 ###############################################################################
 # Pre-defined Functions
@@ -85,6 +89,21 @@ def writeBackProcess(processFilePath, content):
         os.path.join(processFilePath, "process.json"), "w", "utf-8") as fout:
         fout.write(content)
 
+def __write_init_status(sessPath, sessName):
+    allContent = readProcessContent(os.path.join(sessPath, sessName))
+    allContent = json.loads(allContent)
+    allContent['state'] = "processing"
+    allContent['message'] += \
+        "AI recognition starts on {}.".format(datetime.datetime.now().strftime('%H:%M:%S'))
+    writeBackProcess(os.path.join(sessPath, sessName), json.dumps(allContent))        
+    
+def __write_init_failure_status(sessPath, sessName):
+    allContent = readProcessContent(os.path.join(sessPath, sessName))
+    allContent = json.loads(allContent)
+    allContent['state'] = "failure"
+    allContent['message'] += "Session name {} can not start AI.".format(sessName)
+    writeBackProcess(os.path.join(sessPath, sessName), json.dumps(allContent))
+        
 def __runOnBackground(sessPath, sessName, bashCommand):
     try:
         plat = platform.system()[0:3].lower()
@@ -101,30 +120,39 @@ def __runOnBackground(sessPath, sessName, bashCommand):
                     , stdin=None \
                     , stdout=None \
                     , stderr=None \
-                    , close_fds=True)        
-        allContent = readProcessContent(os.path.join(sessPath, sessName))
-        allContent = json.loads(allContent)
-        allContent['state'] = "processing"
-        allContent['message'] += \
-            "AI recognition starts on {}.".format(datetime.datetime.now().strftime('%H:%M:%S'))
-        writeBackProcess(os.path.join(sessPath, sessName), json.dumps(allContent))
+                    , close_fds=True)      
+        __write_init_status(sessPath, sessName)
     except Exception as e:
         print("Session name {} can not start AI.".format(sessName))
-        allContent = readProcessContent(os.path.join(sessPath, sessName))
-        allContent = json.loads(allContent)
-        allContent['state'] = "failure"
-        allContent['message'] += "Session name {} can not start AI.".format(sessName)
-        writeBackProcess(os.path.join(sessPath, sessName), json.dumps(allContent))   
+        __write_init_failure_status(sessPath, sessName)
+        
+def __deploy_task_to_pool_path(poolPath, sessPath, sessName):
+    targetPath = os.path.join(poolPath, sessName)
+    try:
+        with codecs.open(targetPath, 'w', 'utf-8') as fout:
+            fout.write('')
+        __write_init_status(sessPath, sessName)
+    except:
+        print("Session name {} can not start AI.".format(sessName))
+        __write_init_failure_status(sessPath, sessName)
         
 def startImageClassification(sessPath, sessName):
-    bashCommand = "python label_image.py --sessname={} --usedconfig={}"\
-        .format(sessName, "default")  
-    __runOnBackground(sessPath, sessName, bashCommand)
+    global RUNNING_MODE, IC_POOL_PATH
+    if RUNNING_MODE == "job":
+        bashCommand = "python label_image.py --runningmode={} --sessname={}"\
+            .format(RUNNING_MODE, sessName)  
+        __runOnBackground(sessPath, sessName, bashCommand)
+    elif RUNNING_MODE == "runtime":
+        __deploy_task_to_pool_path(IC_POOL_PATH, sessPath, sessName)
         
 def startObjectDetection(sessPath, sessName):   
-    bashCommand = "python object_detection.py --sessname={} --usedconfig={}"\
-        .format(sessName, "default")
-    __runOnBackground(sessPath, sessName, bashCommand)
+    global RUNNING_MODE, OD_POOL_PATH
+    if RUNNING_MODE == "job":    
+        bashCommand = "python object_detection.py --runningmode={} --sessname={}"\
+            .format(RUNNING_MODE, sessName)
+        __runOnBackground(sessPath, sessName, bashCommand)
+    elif RUNNING_MODE == "runtime":
+        __deploy_task_to_pool_path(OD_POOL_PATH, sessPath, sessName)        
         
 def __initialize_session(task_type):
     if request.method == 'POST' and 'photo' in request.files:
@@ -256,6 +284,31 @@ def odresimg():
 # Main Entry
 ###############################################################################         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(\
+        '--runningmode',\
+        type=str,\
+        default='runtime',\
+        help='running mode: runtime(wait for new task) or job(call to run)'\
+    )
+    parser.add_argument(\
+        '--odpoolpath',\
+        type=str,\
+        default=os.path.join('.','pooling','object_detection'),\
+        help='odject detection pooling path'\
+    )
+    parser.add_argument(\
+        '--icpoolpath',\
+        type=str,\
+        default=os.path.join('.','pooling','image_classification'),\
+        help='image classification pooling path'\
+    )
+    FLAGS, unparsed = parser.parse_known_args()
+    
+    RUNNING_MODE = FLAGS.runningmode
+    OD_POOL_PATH = FLAGS.odpoolpath
+    IC_POOL_PATH = FLAGS.icpoolpath
+    
     app.run(host='0.0.0.0', debug=True)
     
     

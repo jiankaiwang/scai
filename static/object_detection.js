@@ -37,7 +37,7 @@ function wait_for_od_complete() {
                 setTimeout(function(){ 
                     wait_for_od_complete(); 
                     console.log("Keep waiting for the calculation complete.");
-                }, 3000);
+                }, 2000);
             } else if (response['state'] == "complete") {
                 change_result_complete();
             } else if (response['state'] == "failure") {
