@@ -28,8 +28,8 @@
 # limitations under the License.
 # 
 # ChangeLog: 
-# |- import necessary library(configparser, json, os, codecs, datetime)
-# |- add file input to fetch other settings (beginning from line 98)
+# |- import necessary library(configparser, json, os, codecs, datetime, time)
+# |- add file input to fetch other settings (beginning from line 99)
 # ==============================================================================
 
 from __future__ import absolute_import
@@ -42,6 +42,7 @@ import json
 import os
 import codecs
 import datetime
+import time
 import numpy as np
 import tensorflow as tf
 
@@ -111,6 +112,53 @@ def __write_session_process(sessPath, sessName, keyValueList):
         process[pair["key"]] = pair["value"]
     with codecs.open(process_file, 'w', 'utf-8') as fout:
         fout.write(json.dumps(process))
+
+# write out the result
+def __write_result(sesspath, sessname, resultData):
+  __write_session_process(sesspath, sessname, [\
+      {"key":"state","value":"complete"}\
+      , {"key":"message","value":"Image classification finished on {}".\
+         format(datetime.datetime.now().strftime("%H:%M:%S"))} \
+      , {"key":"result","value":json.dumps(resultData)}])        
+        
+def classify_single_image(sesspath, sessname):
+  global input_height, input_width, input_mean, input_std, args
+  global graph, input_operation, output_operation, label_file
+  
+  # read the prcoess file
+  preloader = __read_session_process(sesspath, sessname)
+      
+  file_name = args.image if args.image else \
+    os.path.join(sesspath, sessname, preloader['input_image'])
+    
+  t = read_tensor_from_image_file(
+      file_name,
+      input_height=input_height,
+      input_width=input_width,
+      input_mean=input_mean,
+      input_std=input_std)
+
+  with tf.Session(graph=graph) as sess:
+    results = sess.run(output_operation.outputs[0], {
+        input_operation.outputs[0]: t
+    })
+  results = np.squeeze(results)
+
+  top_k = results.argsort()[-5:][::-1]
+  labels = load_labels(label_file)
+  resultData = {}
+  for i in top_k:
+    #print(labels[i], results[i])
+    resultData[labels[i]] = str(round(results[i]* 100, 1)) + '%'
+  
+  # write state
+  __write_result(sesspath, sessname, resultData)
+  
+def remove_task_tag(sessname):
+  global pooling_dir
+  targetFile = os.path.join(pooling_dir, sessname)
+  if os.path.isfile(targetFile):
+    os.remove(targetFile)
   
 if __name__ == "__main__":
   file_name = "tensorflow/examples/label_image/data/grace_hopper.jpg"
@@ -147,8 +195,19 @@ if __name__ == "__main__":
                       , help="config path")  
   parser.add_argument("--usedconfig" \
                       , default='default' \
-                      , help="used config")    
-  
+                      , help="used config") 
+  parser.add_argument('--poolingdir',\
+                      type=str,\
+                      default=os.path.join('.','pooling','image_classification'),\
+                      help='pooling directory for image classification')   
+  parser.add_argument('--checktimeperoid',\
+                      type=int,\
+                      default=2,\
+                      help='check pooling directory in seconds')
+  parser.add_argument('--runningmode',\
+                      type=str,\
+                      default='runtime',\
+                      help='running mode: runtime(wait for new task) or job(call to run)')  
   args = parser.parse_args()
   
   # get args value
@@ -156,27 +215,27 @@ if __name__ == "__main__":
   sessname = args.sessname
   config_file = args.config
   usedconfig = args.usedconfig
+  pooling_dir = args.poolingdir
+  check_time_peroid = args.checktimeperoid
+  running_mode = args.runningmode
 
   # add config parser
   config = configparser.ConfigParser()
   config.read(config_file)
   config = config[usedconfig]      
 
-  # read the prcoess file
-  preloader = __read_session_process(sesspath, sessname)
-  
+  #############################################################################
+  # load first in runtime mode
+  #############################################################################
   # from config
   model_file = args.graph if args.graph else \
       os.path.join('.', 'usr', config['GRAPH'])
+  graph = load_graph(model_file)    
 
-  # from config
-  file_name = args.image if args.image else \
-      os.path.join(sesspath, sessname, preloader['input_image'])
-    
   # from config
   label_file = args.labels if args.labels else \
-      os.path.join('.', 'usr', config['LABELS'])
-
+      os.path.join('.', 'usr', config['LABELS'])  
+      
   if args.input_height:
     input_height = args.input_height
   if args.input_width:
@@ -184,43 +243,32 @@ if __name__ == "__main__":
   if args.input_mean:
     input_mean = args.input_mean
   if args.input_std:
-    input_std = args.input_std
-
+    input_std = args.input_std      
+    
   # from config
   input_layer = args.input_layer if args.input_layer else config['INPUT_LAYER']
-    
-  # from config
-  output_layer = args.output_layer if args.output_layer else config['OUTPUT_LAYER']
-    
-  graph = load_graph(model_file)
-  t = read_tensor_from_image_file(
-      file_name,
-      input_height=input_height,
-      input_width=input_width,
-      input_mean=input_mean,
-      input_std=input_std)
+  output_layer = args.output_layer if args.output_layer else config['OUTPUT_LAYER']    
 
   input_name = "import/" + input_layer
   output_name = "import/" + output_layer
   input_operation = graph.get_operation_by_name(input_name)
   output_operation = graph.get_operation_by_name(output_name)
-
-  with tf.Session(graph=graph) as sess:
-    results = sess.run(output_operation.outputs[0], {
-        input_operation.outputs[0]: t
-    })
-  results = np.squeeze(results)
-
-  top_k = results.argsort()[-5:][::-1]
-  labels = load_labels(label_file)
-  resultData = {}
-  for i in top_k:
-    #print(labels[i], results[i])
-    resultData[labels[i]] = str(round(results[i]* 100, 1)) + '%'
   
-  # write state
-  __write_session_process(sesspath, sessname, [\
-      {"key":"state","value":"complete"}\
-      , {"key":"message","value":"Image classification finished on {}".\
-         format(datetime.datetime.now().strftime("%H:%M:%S"))} \
-      , {"key":"result","value":json.dumps(resultData)}])
+  #############################################################################
+  # run task in runtime mode
+  #############################################################################
+  if running_mode == "job":
+    classify_single_image(sesspath, sessname)   
+  else:      
+    while True:
+      ttlFiles = next(os.walk(pooling_dir))[2]       
+      if len(ttlFiles) > 0:
+        for task in ttlFiles:
+          crtTime = time.ctime()
+          classify_single_image(sesspath, task)
+          remove_task_tag(task)
+          endTime = time.ctime()
+          print("State: Parse task {} from {} to {}."\
+                .format(task, crtTime, endTime))
+      else:
+        time.sleep(check_time_peroid)

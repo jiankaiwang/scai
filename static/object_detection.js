@@ -18,7 +18,7 @@ function change_result_complete() {
     $('#resimgbody').attr('src',base + sessUrl);    
 }
 
-function wait_for_od_complete() {
+function wait_for_od_complete(retryCnt) {
     var base = "/objectdetection/odres"
       , sessUrl = "?task=" + odTaskInfo['sessname'] + "&key=" + odTaskInfo['key'];
     $('.resimg').css({'display':'block'});
@@ -31,17 +31,26 @@ function wait_for_od_complete() {
 			callback(xhr.status + " " + thrownError + ". Cannot connect to " + base + ".");
 		},
 		success: function (response) {
-			//console.log(response['state']);
+			//console.log(response);
             if(['failure','complete'].indexOf(response['state']) < 0) {
                 change_result_notify("state: " + response['state']);
                 setTimeout(function(){ 
-                    wait_for_od_complete(); 
+                    wait_for_od_complete(retryCnt); 
                     console.log("Keep waiting for the calculation complete.");
-                }, 3000);
+                }, 2000);
             } else if (response['state'] == "complete") {
                 change_result_complete();
             } else if (response['state'] == "failure") {
-            
+                // the memory not enough might cause exception
+                // but in the final it would success
+                if(retryCnt < 5) {
+                    setTimeout(function(){ 
+                        wait_for_od_complete(retryCnt + 1); 
+                        console.log("Keep waiting for the calculation complete.");
+                    }, 2000);
+                } else {
+                    console.log("Processing failed.");
+                }
             }
 		}
 	});
@@ -86,7 +95,7 @@ $(function(){
                     change_origin_url();
                     change_result_notify('Initialize object detection.');
                     // wait for object detection calculation complete
-                    wait_for_od_complete();
+                    wait_for_od_complete(0);
                 }
             }
           }

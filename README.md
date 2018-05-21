@@ -251,17 +251,136 @@ For more training details, including labeling, training datasets, model deployme
 
 
 
+### Two Running Mode
+
+There are two running modes, **job** and **runtime**. The **job** mode execute each session (or task) as the single process with complete execution flow, e.g. loading library, loading graph, loading image, executing image classification or object detection, ... , etc. The **runtime** mode (the default mode) takes the each session as the part in the single process. It would be running on the background and watch the folder change over several seconds (`--checktimeperoid`). If there is file (named with the session name) created onto the folder, it would load the session image and directly start image classification or object detection without loading libraries or graph. The runtime mode would save about half execution time. You can simply use flag `--runningmode` to switch between modes.
+
+
+
 ### Command Line
+
+The following are basic commands running the scai portal with its image classification and object detection modules.
 
 ```shell
 git clone https://github.com/jiankaiwang/scai.git
 cd /home/user/scai
-sudo python index.py
+
+# run image classification on the background
+python label_image.py > /dev/null &2>&1
+
+# run object detection on the background
+python object_detection.py > /dev/null &2>&1
+
+# run the main service portal
+sudo python index.py 
 ```
 
 
 
 ### Establish the Service
+
+The following we introduce how to establish scai service. Here we use `nginx` and `uwsgi` to run the scai API  portal. We also establish two services for image classification and object detection, and create two processes of each of them on th background.
+
+
+
+- Establish SCAI API service.
+
+Install nginx.
+```shell
+## Replace $release with your corresponding Ubuntu release.
+# deb http://nginx.org/packages/ubuntu/ $release nginx
+# deb-src http://nginx.org/packages/ubuntu/ $release nginx
+$ deb http://nginx.org/packages/ubuntu/ xenial nginx
+$ deb-src http://nginx.org/packages/ubuntu/ xenial nginx
+
+$ sudo apt-get update
+$ sudo apt-get install -y nginx
+```
+
+Configurate the nginx.
+
+```shell
+$ sudo vim /etc/nginx/nginx.conf
+```
+
+```ini
+# add the command to http section
+# upload body size
+client_max_body_size 20m;
+```
+
+```shell
+$ sudo systemctl restart nginx.service
+```
+
+Install uwsgi.
+
+```shell
+$ sudo apt-get install build-essential python-dev
+$ sudo pip install uwsgi
+```
+
+Clone the repository.
+
+```shell
+$ git clone https://github.com/jiankaiwang/scai.git
+$ cd /home/user/scai
+```
+
+The default `run.py` script is like the below.
+
+```python
+from index import app as application
+
+if __name__ == "__main__":
+   application.run()
+```
+
+You can simply start the service by the command below.
+
+```shell
+$ uwsgi --http :5001 --wsgi-file ./run.py --enable-threads
+```
+
+Create the `ini` for uwsgi.
+
+```shell
+$ vim /home/user/scai/scai.ini
+```
+
+```ini
+[uwsgi]
+module = run:application
+master = true
+processes = 3
+chdir = /home/user/scai/
+socket = /tmp/scai.sock
+logto = /tmp/scai.log
+chmod-socket = 666
+vacuum = true
+http-socket = :5001
+enable-threads = true
+
+# ~ 50 MB
+log-maxsize = 50000000
+
+# allow send_file
+wsgi-disable-file-wrapper = true
+```
+
+Run the uwsgi app.
+
+```shell
+$ uwsgi --ini /home/user/scai/scai.ini
+```
+
+Add soft link to the `/usr/bin`.
+
+```shell
+$ sudo ln -s /home/user/.local/bin/uwsgi /usr/bin/uwsgi
+```
+
+Establish the service.
 
 ```shell
 $ sudo vim /etc/systemd/system/scai.service
@@ -269,13 +388,13 @@ $ sudo vim /etc/systemd/system/scai.service
 
 ```shell
 [Unit]
-Description=Simple Cloud-AI
+Description=Simple Cloud-AI Portal
 After=network.target
 
 [Service]
-User=root
-Group=root
-ExecStart=python /home/user/scai/index.py
+User=user
+Group=user
+ExecStart=/usr/bin/uwsgi --ini /home/user/scai/scai.ini
 Restart=always
 WorkingDirectory=/home/user/scai
 
@@ -287,6 +406,124 @@ WantedBy=multi-user.target
 $ sudo systemctl status scai.service
 $ sudo systemctl start scai.service
 $ sudo systemctl enable scai.service
+```
+
+Access the portal over Nginx.
+
+```shell
+$ sudo vim /etc/nginx/sites-available/default
+```
+
+```nginx
+server {
+    listen 80;
+    server_name domain.example.com;
+    
+    add_header "Access-Control-Allow-Origin"  "*";
+    add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS, HEAD";
+    add_header "Access-Control-Allow-Headers" "Authorization, Origin, X-Requested-With, Content-Type, Accept";
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:/tmp/scai.sock;
+    }
+
+    # let's encrypt
+    location ~ /.well-known {
+        root /home/user/;
+        allow all;
+    }
+}
+```
+
+It is not ideal to add scai subpath to other web. But if you have to integrate scai api to other systems, the alternative configuration is referred to the below.
+
+```nginx
+{
+    ...
+    add_header "Access-Control-Allow-Origin"  "*";
+    add_header "Access-Control-Allow-Methods" "GET, POST, OPTIONS, HEAD";
+    add_header "Access-Control-Allow-Headers" "Authorization, Origin, X-Requested-With, Content-Type, Accept";
+    
+    location ~ /imageclassification {
+        proxy_pass http://localhost:5001;
+
+        # Redefine the header fields that NGINX sends to the upstream server
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location ~ /objectdetection {
+        proxy_pass http://localhost:5001;
+
+        # Redefine the header fields that NGINX sends to the upstream server
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    ...
+}
+```
+
+
+
+* starting image classification module
+
+```shell
+$ sudo vim /etc/systemd/system/scai_ic.service
+```
+
+```shell
+[Unit]
+Description=Simple Cloud-AI Image Classification
+After=network.target
+
+[Service]
+User=user
+Group=user
+ExecStart=/usr/bin/python /home/user/scai/label_image.py --checktimeperoid=1
+Restart=always
+WorkingDirectory=/home/user/scai
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```shell
+$ sudo systemctl status scai_ic.service
+$ sudo systemctl start scai_ic.service
+$ sudo systemctl enable scai_ic.service
+```
+
+
+
+* starting object detection module
+
+```shell
+$ sudo vim /etc/systemd/system/scai_od.service
+```
+
+```shell
+[Unit]
+Description=Simple Cloud-AI Object Detection
+After=network.target
+
+[Service]
+User=user
+Group=user
+ExecStart=/usr/bin/python /home/user/scai/od.py --checktimeperoid=1
+Restart=always
+WorkingDirectory=/home/user/scai
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```shell
+$ sudo systemctl status scai_od.service
+$ sudo systemctl start scai_od.service
+$ sudo systemctl enable scai_od.service
 ```
 
 

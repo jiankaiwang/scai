@@ -29,7 +29,7 @@ function wait_for_ic_complete() {
                 setTimeout(function(){ 
                     wait_for_ic_complete(); 
                     console.log("Keep waiting for the calculation complete.");
-                }, 3000);
+                }, 2000);
             } else if (response['state'] == "complete") {
                 //ic_change_result_notify("finish");
                 //console.log(JSON.parse(response['result']));
