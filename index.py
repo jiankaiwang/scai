@@ -18,9 +18,9 @@ import argparse
 app = Flask(__name__)
 SESSPATH = os.path.join('.','session')
 __randomElement = [item for item in '0123456789abcdefghijklmnopqrstuvwxyz']
-RUNNING_MODE = None
-OD_POOL_PATH = None
-IC_POOL_PATH = None
+RUNNING_MODE = "runtime"
+OD_POOL_PATH = os.path.join('.','pooling','object_detection')
+IC_POOL_PATH = os.path.join('.','pooling','image_classification')
 
 ###############################################################################
 # Pre-defined Functions
@@ -212,8 +212,7 @@ def __output_img(tag_in_process, job):
             preloadres = json.loads(readProcessContent(taskPath))
             processKey = preloadres['key']
             if processKey == allArgs["key"][0] and preloadres['job'] == job:
-                imgPath = ".\session\{}\{}"\
-                    .format(allArgs["task"][0],preloadres[tag_in_process])
+                imgPath = os.path.join(".","session",allArgs["task"][0],preloadres[tag_in_process])
                 available = True
     if not available:
         imgPath = os.path.join(".","usr","task404.jpg")
@@ -238,7 +237,8 @@ def __response_res(job):
     else:
         return jsonify(retUploadMsg(\
                     "error", "", "", "no available task, key or job", ""))          
-        
+
+
 ###############################################################################
 # API Instruction and Homepage
 ###############################################################################  
@@ -249,7 +249,7 @@ def index():
 ###############################################################################
 # Image Classification API
 ###############################################################################    
-@app.route('/imageclassification', methods=['GET','POST'])
+@app.route('/imageclassification', methods=['GET','POST','OPTIONS'])
 def imageclassification():
     return __initialize_session("image_classification")
 
@@ -264,7 +264,7 @@ def imgclassres():
 ###############################################################################
 # Object Detection API
 ###############################################################################   
-@app.route('/objectdetection', methods=['GET','POST'])
+@app.route('/objectdetection', methods=['GET','POST','OPTIONS'])
 def objectdetection():
     return __initialize_session("object_detection")
         
@@ -302,14 +302,14 @@ if __name__ == '__main__':
         type=str,\
         default=os.path.join('.','pooling','image_classification'),\
         help='image classification pooling path'\
-    )
+    ) 
     FLAGS, unparsed = parser.parse_known_args()
     
     RUNNING_MODE = FLAGS.runningmode
     OD_POOL_PATH = FLAGS.odpoolpath
     IC_POOL_PATH = FLAGS.icpoolpath
     
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', debug=False, threaded=True)
     
     
     

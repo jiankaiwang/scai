@@ -253,7 +253,6 @@ if __name__ == '__main__':
                     try:
                         output_object_detection()
                     except:
-                        print()
                         __write_session_process([\
                             {"key":"state","value":"failure"}\
                             , {"key":"message","value":"Object detection failed on {}"\
