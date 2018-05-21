@@ -528,6 +528,20 @@ $ sudo systemctl enable scai_od.service
 
 
 
+* running session cleaning
+
+You can set up cleaning job over `crontab` on linux. The following is the example to clean sessions which is processed two days before on every 4 hours.
+
+```shell
+$ sudo vim /etc/crontab
+```
+
+```ini
+30 */4 * * *    user     /home/user/scai/clean.py --sessionpath=/home/user/scai/session --keeptimeperoid=172800
+```
+
+
+
 ### Access API
 
 ```html
